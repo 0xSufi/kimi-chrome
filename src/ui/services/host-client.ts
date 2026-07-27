@@ -18,6 +18,8 @@
 
 const STORAGE_KEY_HOST_URL = 'KIMI_HOST_URL';
 const STORAGE_KEY_HOST_TOKEN = 'KIMI_HOST_TOKEN';
+const STORAGE_KEY_HOST_CWD = 'KIMI_HOST_CWD';
+const STORAGE_KEY_HOST_MODEL = 'KIMI_HOST_MODEL';
 
 const WS_BEARER_PROTOCOL_PREFIX = 'kimi-code.bearer.';
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -25,20 +27,40 @@ const REQUEST_TIMEOUT_MS = 30_000;
 export interface HostClientConfig {
   hostUrl: string;
   authToken: string;
+  /** Absolute path on the kimi-code host used as the session workspace.
+      The daemon requires it (metadata.cwd) and does not expand `~`. */
+  cwd?: string;
+  /** Model id (from GET /models). When unset, the client auto-picks the
+      only available model, or lets the daemon default when several exist. */
+  model?: string;
 }
 
 export async function readHostConfig(): Promise<HostClientConfig | null> {
-  const stored = await chrome.storage.local.get([STORAGE_KEY_HOST_URL, STORAGE_KEY_HOST_TOKEN]);
+  const stored = await chrome.storage.local.get([
+    STORAGE_KEY_HOST_URL,
+    STORAGE_KEY_HOST_TOKEN,
+    STORAGE_KEY_HOST_CWD,
+    STORAGE_KEY_HOST_MODEL,
+  ]);
   const hostUrl = stored[STORAGE_KEY_HOST_URL];
   const authToken = stored[STORAGE_KEY_HOST_TOKEN];
   if (typeof hostUrl !== 'string' || typeof authToken !== 'string' || !hostUrl || !authToken) return null;
-  return { hostUrl, authToken };
+  const cwd = stored[STORAGE_KEY_HOST_CWD];
+  const model = stored[STORAGE_KEY_HOST_MODEL];
+  return {
+    hostUrl,
+    authToken,
+    cwd: typeof cwd === 'string' && cwd ? cwd : undefined,
+    model: typeof model === 'string' && model ? model : undefined,
+  };
 }
 
 export async function writeHostConfig(cfg: HostClientConfig): Promise<void> {
   await chrome.storage.local.set({
     [STORAGE_KEY_HOST_URL]: cfg.hostUrl,
     [STORAGE_KEY_HOST_TOKEN]: cfg.authToken,
+    [STORAGE_KEY_HOST_CWD]: cfg.cwd ?? '',
+    [STORAGE_KEY_HOST_MODEL]: cfg.model ?? '',
   });
 }
 
@@ -87,6 +109,7 @@ export class HostClient {
   private closed = false;
   private readonly clientId = `ext_${crypto.randomUUID()}`;
   private msgSeq = 0;
+  private modelId: string | null = null;
   /** Cumulative assistant/thinking text lengths for volatile-delta dedup. */
   private assistantLen = 0;
   private thinkingLen = 0;
@@ -98,8 +121,11 @@ export class HostClient {
     await this.ensureConnected();
     this.assistantLen = 0;
     this.thinkingLen = 0;
+    // Model rides on the prompt: session-level agent_config.model is not
+    // honored by current kap-server builds, the prompt-level field is.
     await this.rest('POST', `/sessions/${encodeURIComponent(this.sessionId!)}/prompts`, {
       content: [{ type: 'text', text }],
+      ...(this.modelId ? { model: this.modelId } : {}),
     });
   }
 
@@ -170,8 +196,36 @@ export class HostClient {
   private async doConnect(): Promise<void> {
     this.closed = false;
 
-    // The daemon rejects a missing metadata object with 40001.
-    const session = await this.rest<{ id: string }>('POST', '/sessions', { metadata: {} });
+    // Resolve the model once per connection: explicit config wins; a
+    // single-model daemon (e.g. env-injected) is unambiguous; otherwise
+    // leave unset and let the daemon default.
+    if (!this.modelId) {
+      if (this.cfg.model) {
+        this.modelId = this.cfg.model;
+      } else {
+        try {
+          const models = await this.rest<{ items: Array<{ model: string }> }>('GET', '/models');
+          if (models.items?.length === 1) this.modelId = models.items[0].model;
+        } catch {}
+      }
+    }
+
+    // The daemon requires a metadata object and, when creating a fresh
+    // workspace, an existing absolute metadata.cwd.
+    let session: { id: string };
+    try {
+      session = await this.rest<{ id: string }>('POST', '/sessions', {
+        metadata: this.cfg.cwd ? { cwd: this.cfg.cwd } : {},
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/metadata\.cwd|workspace root/.test(msg)) {
+        throw new Error(
+          `${msg} — set "Working directory" in the extension settings to an existing absolute path on the kimi host.`,
+        );
+      }
+      throw e;
+    }
     this.sessionId = session.id;
 
     const wsUrl = new URL(this.restUrl('/ws'));
@@ -285,6 +339,10 @@ export class HostClient {
       }
       case 'turn.ended': {
         const reason = typeof payload.reason === 'string' ? payload.reason : undefined;
+        if (reason === 'failed') {
+          const err = payload.error as { message?: string; code?: string } | undefined;
+          this.cb.onError?.(new Error(err?.message ?? err?.code ?? 'turn failed'));
+        }
         this.cb.onResult?.({ reason });
         return;
       }

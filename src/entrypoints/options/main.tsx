@@ -208,20 +208,26 @@ interface NativeHostStatus {
 
 const HOST_URL_KEY = 'KIMI_HOST_URL';
 const HOST_TOKEN_KEY = 'KIMI_HOST_TOKEN';
+const HOST_CWD_KEY = 'KIMI_HOST_CWD';
+const HOST_MODEL_KEY = 'KIMI_HOST_MODEL';
 
 function ConnectionTab(): React.ReactElement {
   const [status, setStatus] = useState<NativeHostStatus | null>(null);
   const [hostUrl, setHostUrl] = useState('');
   const [hostToken, setHostToken] = useState('');
+  const [hostCwd, setHostCwd] = useState('');
+  const [hostModel, setHostModel] = useState('');
   const [saved, setSaved] = useState<'idle' | 'saving' | 'done'>('idle');
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'check_native_host_status' }, (r) => {
       setStatus((r?.status as NativeHostStatus | undefined) ?? null);
     });
-    chrome.storage.local.get([HOST_URL_KEY, HOST_TOKEN_KEY], (r) => {
+    chrome.storage.local.get([HOST_URL_KEY, HOST_TOKEN_KEY, HOST_CWD_KEY, HOST_MODEL_KEY], (r) => {
       setHostUrl((r[HOST_URL_KEY] as string | undefined) ?? '');
       setHostToken((r[HOST_TOKEN_KEY] as string | undefined) ?? '');
+      setHostCwd((r[HOST_CWD_KEY] as string | undefined) ?? '');
+      setHostModel((r[HOST_MODEL_KEY] as string | undefined) ?? '');
     });
   }, []);
 
@@ -230,10 +236,12 @@ function ConnectionTab(): React.ReactElement {
     await chrome.storage.local.set({
       [HOST_URL_KEY]: hostUrl.trim(),
       [HOST_TOKEN_KEY]: hostToken.trim(),
+      [HOST_CWD_KEY]: hostCwd.trim(),
+      [HOST_MODEL_KEY]: hostModel.trim(),
     });
     setSaved('done');
     setTimeout(() => setSaved('idle'), 1500);
-  }, [hostUrl, hostToken]);
+  }, [hostUrl, hostToken, hostCwd, hostModel]);
 
   const bridgeColor = status?.bridgeStatus === 'paired' ? '#22c55e'
     : status?.bridgeStatus === 'waiting' ? '#3b82f6'
@@ -285,6 +293,26 @@ function ConnectionTab(): React.ReactElement {
             value={hostToken}
             onChange={(e) => setHostToken(e.target.value)}
             placeholder="bearer token"
+            style={field}
+          />
+        </label>
+        <label style={fieldLabel}>
+          Working directory (absolute path on the kimi host; required by the daemon)
+          <input
+            type="text"
+            value={hostCwd}
+            onChange={(e) => setHostCwd(e.target.value)}
+            placeholder="/home/you/projects/sandbox"
+            style={field}
+          />
+        </label>
+        <label style={fieldLabel}>
+          Model id (optional; auto-picked when the daemon has exactly one)
+          <input
+            type="text"
+            value={hostModel}
+            onChange={(e) => setHostModel(e.target.value)}
+            placeholder="leave empty for default"
             style={field}
           />
         </label>
