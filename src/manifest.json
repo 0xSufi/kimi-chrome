@@ -1,0 +1,84 @@
+{
+  "manifest_version": 3,
+  "name": "Dyspel (next)",
+  "description": "Dyspel in Chrome — rewrite",
+  "version": "2.0.0",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Open Dyspel"
+  },
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "commands": {
+    "toggle-side-panel": {
+      "description": "Toggle Dyspel side panel",
+      "suggested_key": {
+        "default": "Ctrl+E",
+        "mac": "Command+E"
+      }
+    }
+  },
+  "content_scripts": [
+    {
+      "all_frames": true,
+      "js": ["content-scripts/accessibility-tree.js"],
+      "matches": ["<all_urls>"],
+      "run_at": "document_start"
+    },
+    {
+      "all_frames": false,
+      "js": ["content-scripts/agent-visual-indicator.js"],
+      "matches": ["<all_urls>"],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.anthropic.com wss://api.anthropic.com https://claude.ai https://platform.claude.com wss://bridge.claudeusercontent.com wss://bridge-staging.claudeusercontent.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+  },
+  "externally_connectable": {
+    "matches": [
+      "https://*.dyspel.io/*",
+      "https://*.dyspel.ai/*",
+      "https://*.dyspel.xyz/*",
+      "http://localhost/*",
+      "http://localhost:*/*",
+      "http://127.0.0.1/*",
+      "http://127.0.0.1:*/*"
+    ]
+  },
+  "host_permissions": ["<all_urls>"],
+  "icons": {
+    "128": "icon-128.png"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",
+    "scripting",
+    "debugger",
+    "tabGroups",
+    "tabs",
+    "alarms",
+    "notifications",
+    "system.display",
+    "webNavigation",
+    "offscreen",
+    "nativeMessaging",
+    "unlimitedStorage",
+    "downloads",
+    "identity"
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "web_accessible_resources": [
+    {
+      "matches": ["<all_urls>"],
+      "resources": ["content-scripts/accessibility-tree.js", "content-scripts/agent-visual-indicator.js"],
+      "use_dynamic_url": false
+    }
+  ]
+}
