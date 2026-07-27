@@ -1,12 +1,12 @@
 // WebSocket bridge transport.
 //
-// Connects to wss://bridge.claudeusercontent.com/chrome/{accessToken}
-// in production. For local-relay dev, set chrome.storage.local
-// LOCAL_BRIDGE_URL to a ws://localhost URL — the relay ignores the
-// path token. See cc-wasm-bridge for the matching server.
+// Connects to the local tool shim (ws://127.0.0.1:8765/chrome/local by
+// default) which relays tool_call/tool_result frames between kimi-code
+// and this extension. Set chrome.storage.local LOCAL_BRIDGE_URL to
+// point elsewhere — the shim ignores the path token.
 
 import {
-  BRIDGE_URL_PROD,
+  BRIDGE_URL_DEFAULT,
   StorageKey,
   type BridgeIncoming,
   type BridgeOutgoing,
@@ -82,17 +82,11 @@ export function initialize(): void {
     else send({ type: 'ping' });
   });
 
-  // Kick a reconnect the moment the OAuth callback lands an access
-  // token so the user doesn't sit through the next reconnect tick.
+  // Kick a reconnect the moment the bridge URL changes so the user
+  // doesn't sit through the next reconnect tick.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
-    if (changes[StorageKey.ACCESS_TOKEN] || changes[StorageKey.LOCAL_BRIDGE_URL]) {
-      const newToken = changes[StorageKey.ACCESS_TOKEN]?.newValue;
-      if (!newToken && !changes[StorageKey.LOCAL_BRIDGE_URL]) {
-        // Token was cleared (logout) — drop the live socket.
-        disconnect();
-        return;
-      }
+    if (changes[StorageKey.LOCAL_BRIDGE_URL]) {
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -194,12 +188,9 @@ async function resolveUrl(): Promise<string | null> {
   const localOverride = await storageGet<string>(StorageKey.LOCAL_BRIDGE_URL);
   if (typeof localOverride === 'string' && localOverride) return localOverride;
 
-  // Production token: oauth.ts writes it under StorageKey.ACCESS_TOKEN
-  // in chrome.storage.local. Read from the same place — the v1's split
-  // (oauth → local, bridge → sync) was a bug we carried over.
-  const accessToken = await storageGet<string>(StorageKey.ACCESS_TOKEN);
-  if (!accessToken) return null;
-  return `${BRIDGE_URL_PROD}/chrome/${accessToken}`;
+  // The shim ignores the path segment after /chrome/; it exists only
+  // to keep the URL shape the relay protocol expects.
+  return `${BRIDGE_URL_DEFAULT}/chrome/local`;
 }
 
 function scheduleReconnect(): void {

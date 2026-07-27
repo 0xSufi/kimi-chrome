@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "Dyspel (next)",
-  "description": "Dyspel in Chrome — rewrite",
-  "version": "2.0.0",
+  "name": "Kimi in Chrome",
+  "description": "Drive Chrome with kimi-code — browser tools + sidepanel chat",
+  "version": "0.1.0",
   "minimum_chrome_version": "116",
   "action": {
-    "default_title": "Open Dyspel"
+    "default_title": "Open Kimi"
   },
   "background": {
     "service_worker": "service-worker.js",
@@ -13,7 +13,7 @@
   },
   "commands": {
     "toggle-side-panel": {
-      "description": "Toggle Dyspel side panel",
+      "description": "Toggle Kimi side panel",
       "suggested_key": {
         "default": "Ctrl+E",
         "mac": "Command+E"
@@ -35,13 +35,10 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://api.anthropic.com wss://api.anthropic.com https://claude.ai https://platform.claude.com wss://bridge.claudeusercontent.com wss://bridge-staging.claudeusercontent.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:*; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;"
   },
   "externally_connectable": {
     "matches": [
-      "https://*.dyspel.io/*",
-      "https://*.dyspel.ai/*",
-      "https://*.dyspel.xyz/*",
       "http://localhost/*",
       "http://localhost:*/*",
       "http://127.0.0.1/*",

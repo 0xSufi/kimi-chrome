@@ -77,7 +77,7 @@ export function ChatView(): React.ReactElement {
       appendMessage({
         id: `m_${Date.now()}_e`,
         role: 'system',
-        content: 'Dyspel host server not configured. Open settings to set the host URL and auth token.',
+        content: 'Kimi server not configured. Open settings to set the host URL and auth token.',
         timestamp: Date.now(),
         error: 'no host config',
       });
@@ -172,7 +172,7 @@ export function ChatView(): React.ReactElement {
         background: 'var(--bg-100, #fff)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontWeight: 600, fontSize: 15 }}>Dyspel</span>
+          <span style={{ fontWeight: 600, fontSize: 15 }}>Kimi</span>
           <ConnectionStatus />
         </div>
         {messages.length > 0 && (
@@ -241,7 +241,7 @@ export function ChatView(): React.ReactElement {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Message Dyspel…"
+            placeholder="Message Kimi…"
             rows={1}
             style={{
               flex: 1, resize: 'none', border: 'none', outline: 'none',

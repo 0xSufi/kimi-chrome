@@ -67,7 +67,7 @@ export async function enqueueScheduledFire(prompt: ScheduledPrompt): Promise<voi
       await chrome.notifications.create(item.id, {
         type: 'basic',
         iconUrl: chrome.runtime.getURL('icon-128.png'),
-        title: 'Dyspel scheduled task ready',
+        title: 'Kimi scheduled task ready',
         message: truncate(text, 120),
         priority: 1,
       });

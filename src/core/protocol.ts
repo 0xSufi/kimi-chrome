@@ -47,16 +47,21 @@ export type NativeIncoming =
       };
     };
 
+// No Kimi-side native messaging host exists yet; this is the name a
+// future host manifest must register under for the native transport
+// to find it. The transport degrades gracefully when absent.
 export const NATIVE_HOSTS = [
-  { name: 'com.anthropic.claude_browser_extension', label: 'Desktop' },
-  { name: 'com.anthropic.claude_code_browser_extension', label: 'Dyspel CLI' },
+  { name: 'com.moonshot.kimi_code_browser_extension', label: 'Kimi CLI' },
 ] as const;
 
 // ============================================================
 // Bridge wire format (WebSocket)
 // ============================================================
 
-export const BRIDGE_URL_PROD = 'wss://bridge.claudeusercontent.com';
+// Default bridge endpoint: the local tool shim (shim/ in this repo),
+// which relays tool_call/tool_result frames between kimi-code (MCP)
+// and this extension. Override via StorageKey.LOCAL_BRIDGE_URL.
+export const BRIDGE_URL_DEFAULT = 'ws://127.0.0.1:8765';
 
 export type BridgeOutgoing =
   | { type: 'connect'; client_type: 'chrome-extension'; device_id: string; os_platform: string; extension_version: string; display_name?: string }
@@ -107,14 +112,6 @@ export enum StorageKey {
   // Connection state mirror
   MCP_CONNECTED = 'MCP_CONNECTED',
 
-  // OAuth (Phase E)
-  ACCESS_TOKEN = 'accessToken',
-  REFRESH_TOKEN = 'refreshToken',
-  TOKEN_EXPIRY = 'tokenExpiry',
-  OAUTH_STATE = 'oauthState',
-  CODE_VERIFIER = 'codeVerifier',
-  ACCOUNT_UUID = 'accountUuid',
-
   // Scheduled prompts (Phase E)
   SAVED_PROMPTS = 'savedPrompts',
 
@@ -134,6 +131,5 @@ export const enum InternalMessage {
   SW_KEEPALIVE = 'SW_KEEPALIVE',
   PAIRING_CONFIRMED = 'pairing_confirmed',
   PAIRING_DISMISSED = 'pairing_dismissed',
-  OAUTH_REDIRECT = 'oauth_redirect',
   PING = 'ping',
 }

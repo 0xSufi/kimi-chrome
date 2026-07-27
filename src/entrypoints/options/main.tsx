@@ -206,21 +206,14 @@ interface NativeHostStatus {
   bridgeStatus?: 'disconnected' | 'connecting' | 'paired' | 'waiting';
 }
 
-const HOST_URL_KEY = 'DYSPEL_HOST_URL';
-const HOST_TOKEN_KEY = 'DYSPEL_HOST_TOKEN';
+const HOST_URL_KEY = 'KIMI_HOST_URL';
+const HOST_TOKEN_KEY = 'KIMI_HOST_TOKEN';
 
 function ConnectionTab(): React.ReactElement {
   const [status, setStatus] = useState<NativeHostStatus | null>(null);
   const [hostUrl, setHostUrl] = useState('');
   const [hostToken, setHostToken] = useState('');
   const [saved, setSaved] = useState<'idle' | 'saving' | 'done'>('idle');
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
-
-  const refreshSignIn = useCallback(() => {
-    chrome.runtime.sendMessage({ type: 'oauth_status' }, (r) => {
-      setSignedIn(!!r?.signedIn);
-    });
-  }, []);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'check_native_host_status' }, (r) => {
@@ -230,23 +223,7 @@ function ConnectionTab(): React.ReactElement {
       setHostUrl((r[HOST_URL_KEY] as string | undefined) ?? '');
       setHostToken((r[HOST_TOKEN_KEY] as string | undefined) ?? '');
     });
-    refreshSignIn();
-
-    // Refresh sign-in status when storage changes (e.g. after OAuth callback).
-    const listener = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
-      if (area === 'local' && (changes.accessToken || changes.refreshToken)) refreshSignIn();
-    };
-    chrome.storage.onChanged.addListener(listener);
-    return () => chrome.storage.onChanged.removeListener(listener);
-  }, [refreshSignIn]);
-
-  const signIn = useCallback(() => {
-    chrome.runtime.sendMessage({ type: 'oauth_initiate' });
   }, []);
-
-  const signOut = useCallback(() => {
-    chrome.runtime.sendMessage({ type: 'oauth_logout' }, () => refreshSignIn());
-  }, [refreshSignIn]);
 
   const saveHost = useCallback(async () => {
     setSaved('saving');
@@ -282,29 +259,13 @@ function ConnectionTab(): React.ReactElement {
         <p style={{ color: '#6b7280' }}>Loading…</p>
       )}
 
-      <h2 style={{ marginTop: 32 }}>Account</h2>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        {signedIn === null && <span style={{ color: '#6b7280', fontSize: 13 }}>Loading…</span>}
-        {signedIn === true && (
-          <>
-            <Row dot="#22c55e">Signed in to claude.ai</Row>
-            <button onClick={signOut} style={btn}>Sign out</button>
-          </>
-        )}
-        {signedIn === false && (
-          <>
-            <Row dot="#9ca3af">Not signed in</Row>
-            <button onClick={signIn} style={{ ...btn, background: '#c96442', color: '#fff', borderColor: '#c96442' }}>
-              Sign in to claude.ai
-            </button>
-          </>
-        )}
-      </div>
-
-      <h2 style={{ marginTop: 32 }}>Host Server (sidepanel chat)</h2>
+      <h2 style={{ marginTop: 32 }}>Kimi Server (sidepanel chat)</h2>
       <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 12 }}>
-        The side panel chat talks to a cc-wasm host server over HTTP+WS.
-        Set the URL (e.g. <code>http://127.0.0.1:7474</code>) and the bearer token.
+        The side panel chat talks to a local kimi-code kap-server (started
+        by <code>kimi web</code>) over HTTP+WS. Set the URL
+        (e.g. <code>http://127.0.0.1:58627</code>) and the bearer token
+        from <code>~/.kimi-code/server.token</code> or the <code>#token=</code>
+        fragment of the URL <code>kimi web</code> opens.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 480 }}>
         <label style={fieldLabel}>
@@ -465,7 +426,7 @@ function OptionsApp(): React.ReactElement {
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: 24, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <h1 style={{ fontSize: 24, marginBottom: 24 }}>Dyspel Settings</h1>
+      <h1 style={{ fontSize: 24, marginBottom: 24 }}>Kimi Settings</h1>
       <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', marginBottom: 24 }}>
         {TABS.map((t) => (
           <button

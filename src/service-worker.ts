@@ -1,4 +1,4 @@
-// Dyspel service worker — rewrite spine.
+// Kimi-in-Chrome service worker — routing spine.
 //
 // Phase B: connect to the native host and the bridge; route
 // inbound tool requests to the (still-stubbed) tool registry.
@@ -15,7 +15,6 @@ import { nativeTransport, getStatus as getNativeStatus, onStatusChange } from '.
 import { registerTransport, broadcastNotification } from './core/router';
 import { detachAll as detachAllDebuggers } from './core/cdp';
 import { InternalMessage } from './core/protocol';
-import { handleOAuthRedirect, initiateOAuthFlow, logout, getAccessToken } from './core/oauth';
 import {
   isPromptAlarm,
   getPrompt,
@@ -34,7 +33,7 @@ import { clearOnce as clearOncePermissions } from './core/permissions';
 // Registers tools and replaces the default dispatch stub.
 import './tools/registry';
 
-console.log('[dyspel] service worker booted');
+console.log('[kimi] service worker booted');
 
 registerTransport(nativeTransport);
 registerTransport(bridgeTransport);
@@ -67,7 +66,7 @@ void bridgeTransport.connect();
 void clearOncePermissions().catch(() => {});
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[dyspel] installed');
+  console.log('[kimi] installed');
   void nativeTransport.connect();
   void bridgeTransport.connect();
 });
@@ -130,10 +129,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse({ ok: true });
       return false;
 
-    case InternalMessage.OAUTH_REDIRECT:
-      handleOAuthRedirect(message.url, _sender.tab?.id).then(sendResponse);
-      return true;
-
     case 'check_native_host_status': {
       const native = getNativeStatus();
       sendResponse({
@@ -162,19 +157,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return true;
     }
 
-    case 'oauth_initiate':
-      void initiateOAuthFlow();
-      sendResponse({ ok: true });
-      return false;
-
-    case 'oauth_logout':
-      logout().then(() => sendResponse({ ok: true }));
-      return true;
-
-    case 'oauth_status':
-      getAccessToken().then((token) => sendResponse({ signedIn: !!token }));
-      return true;
-
     case 'STOP_AGENT':
       // Telling every transport to stop is a fanout: broadcast an
       // interrupt notification so cc-wasm/the bridge can act, detach
@@ -191,16 +173,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
-// External page → service worker (claude.ai, dyspel.xyz, localhost).
-chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+// External page → service worker (localhost dev pages).
+chrome.runtime.onMessageExternal.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message !== 'object') return false;
 
-  if (message.type === InternalMessage.OAUTH_REDIRECT) {
-    handleOAuthRedirect(message.url, sender.tab?.id).then(sendResponse);
-    return true;
-  }
-
-  // Tool calls from authorized origins (e.g. dyspel.xyz dashboards).
+  // Tool calls from authorized origins (e.g. local dashboards).
   if (message.type === 'tool_call') {
     // Phase B's router doesn't expose direct invocation yet; Phase G
     // wires this when the dashboard surface lands.

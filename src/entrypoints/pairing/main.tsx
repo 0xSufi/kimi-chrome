@@ -29,7 +29,7 @@ function PairingPrompt({ requestId, clientType, currentName }: {
     setTimeout(closeSelf, 100);
   }, [requestId]);
 
-  const label = clientType === 'claude-code' ? 'Dyspel CLI' : 'Dyspel Desktop';
+  const label = clientType === 'claude-code' ? 'Kimi CLI' : 'Kimi Desktop';
 
   return (
     <div style={{

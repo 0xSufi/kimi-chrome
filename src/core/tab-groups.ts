@@ -11,7 +11,7 @@
 import { StorageKey } from './protocol';
 import { get as storageGet, set as storageSet } from './storage';
 
-const MCP_GROUP_TITLE = 'Dyspel (MCP)';
+const MCP_GROUP_TITLE = 'Kimi (MCP)';
 const MCP_GROUP_KEY = 'mcpTabGroupId' as const;
 
 let mcpGroupId: number | null = null;

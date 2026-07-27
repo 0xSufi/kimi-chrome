@@ -1,11 +1,8 @@
 // Domain category check + managed-policy blocklist.
 //
-// Categories come from claude.ai's domain_info endpoint when the
-// user is logged in. Without an access token we skip the check,
-// which means everything not on the managed blocklist is allowed.
-
-import { StorageKey } from './protocol';
-import { get as storageGet } from './storage';
+// The remote category service (claude.ai domain_info in the original
+// extension) has no Kimi counterpart, so only the managed blocklist
+// applies: everything not on it is allowed.
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -81,22 +78,11 @@ export async function isBlockedByManagedPolicy(url: string): Promise<boolean> {
 // Category fetch
 // ============================================================
 
-async function fetchCategory(domain: string): Promise<DomainCategory | undefined> {
-  const accessToken = await storageGet<string>(StorageKey.ACCESS_TOKEN);
-  if (!accessToken) return undefined;
-
-  try {
-    const resp = await fetch(
-      `https://claude.ai/api/web/domain_info/browser_extension?domain=${encodeURIComponent(domain)}`,
-      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } },
-    );
-    if (!resp.ok) return undefined;
-    const data = (await resp.json()) as { org_policy?: string; category?: DomainCategory };
-    if (data.org_policy === 'block') return 'category_org_blocked';
-    return data.category;
-  } catch {
-    return undefined;
-  }
+// No remote category service in the Kimi port. Hook point if one
+// ever exists again; returning undefined means "no category known",
+// which the callers treat as allowed.
+async function fetchCategory(_domain: string): Promise<DomainCategory | undefined> {
+  return undefined;
 }
 
 export async function getCategory(input: string): Promise<DomainCategory | undefined> {

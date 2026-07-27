@@ -62,7 +62,7 @@
       box-shadow: 0 40px 80px ${ORANGE}0.24), 0 4px 14px ${ORANGE}0.24);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     `;
-    btn.textContent = 'Stop Dyspel';
+    btn.textContent = 'Stop Kimi';
     btn.addEventListener('mouseenter', () => { if (agentActive) btn.style.background = '#F5F4F0'; });
     btn.addEventListener('mouseleave', () => { if (agentActive) btn.style.background = '#FAF9F5'; });
     btn.addEventListener('click', () => {

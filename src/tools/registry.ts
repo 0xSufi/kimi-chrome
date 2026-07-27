@@ -229,7 +229,7 @@ async function dispatch(inv: ToolInvocation): Promise<void> {
     try {
       await attach(resolved.tabId);
     } catch (e) {
-      console.warn('[dyspel] debugger attach failed:', e);
+      console.warn('[kimi] debugger attach failed:', e);
     }
   }
 
