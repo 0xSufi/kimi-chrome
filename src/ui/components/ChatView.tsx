@@ -31,7 +31,7 @@ export function ChatView(): React.ReactElement {
     };
     refresh();
     const listener = (changes: { [k: string]: chrome.storage.StorageChange }, area: string) => {
-      if (area === 'local' && (changes.DYSPEL_HOST_URL || changes.DYSPEL_HOST_TOKEN)) refresh();
+      if (area === 'local' && (changes.KIMI_HOST_URL || changes.KIMI_HOST_TOKEN)) refresh();
     };
     chrome.storage.onChanged.addListener(listener);
     return () => chrome.storage.onChanged.removeListener(listener);
@@ -113,6 +113,28 @@ export function ChatView(): React.ReactElement {
           streamingIdRef.current = null;
           setIsStreaming(false);
         },
+        onApprovalRequest: (req) => {
+          appendMessage({
+            id: `approval_${req.approvalId}`,
+            role: 'assistant',
+            content: '',
+            timestamp: Date.now(),
+            approval: {
+              approvalId: req.approvalId,
+              toolName: req.toolName,
+              action: req.action,
+              display: req.display,
+            },
+          });
+        },
+        onApprovalResolved: (approvalId) => {
+          const msg = useMessageStore.getState().messages.find(
+            (m) => m.approval?.approvalId === approvalId && !m.approval.resolved,
+          );
+          if (msg?.approval) {
+            updateMessage(msg.id, { approval: { ...msg.approval, resolved: 'expired' } });
+          }
+        },
         onClose: (reason) => {
           const id = streamingIdRef.current;
           if (id) updateMessage(id, { isStreaming: false, error: reason ?? 'connection closed' });
@@ -139,6 +161,17 @@ export function ChatView(): React.ReactElement {
       clientRef.current = null;
     }
   }, [inputText, isStreaming, appendMessage, updateMessage, setInputText, setIsStreaming]);
+
+  const handleApproval = useCallback((messageId: string, approvalId: string, decision: 'approved' | 'rejected') => {
+    const msg = useMessageStore.getState().messages.find((m) => m.id === messageId);
+    void clientRef.current?.resolveApproval(approvalId, decision)
+      .then(() => {
+        if (msg?.approval) updateMessage(messageId, { approval: { ...msg.approval, resolved: decision } });
+      })
+      .catch((e: unknown) => {
+        updateMessage(messageId, { error: e instanceof Error ? e.message : String(e) });
+      });
+  }, [updateMessage]);
 
   const handleKey = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -220,7 +253,13 @@ export function ChatView(): React.ReactElement {
             )}
           </div>
         )}
-        {messages.map((m) => <MessageBubble key={m.id} message={m} />)}
+        {messages.map((m) => (
+          <MessageBubble
+            key={m.id}
+            message={m}
+            onApproval={m.approval && !m.approval.resolved ? handleApproval : undefined}
+          />
+        ))}
         <div ref={endRef} />
       </div>
 

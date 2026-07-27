@@ -7,6 +7,14 @@ export interface ChatMessage {
   timestamp: number;
   isStreaming?: boolean;
   toolUse?: { name: string; input: Record<string, unknown> };
+  /** kap-server tool approval attached to this message; resolved is unset while pending. */
+  approval?: {
+    approvalId: string;
+    toolName: string;
+    action: string;
+    display?: unknown;
+    resolved?: 'approved' | 'rejected' | 'expired';
+  };
   error?: string;
 }
 
