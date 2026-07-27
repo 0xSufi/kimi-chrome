@@ -1,0 +1,14 @@
+{
+  "name": "kimi-chrome-shim",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local relay between kimi-code (MCP over streamable HTTP) and the Kimi-in-Chrome extension (bridge WebSocket)",
+  "main": "shim.mjs",
+  "scripts": {
+    "start": "node shim.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
