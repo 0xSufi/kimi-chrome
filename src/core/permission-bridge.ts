@@ -36,8 +36,17 @@ export async function requestPermission(opts: {
       new Promise<null>((resolve) => setTimeout(() => resolve(null), PROMPT_TIMEOUT_MS)),
     ]) as PermissionResponse | null;
   } catch {
-    // Side panel is not open; sendMessage rejects.
-    return { allowed: false, reason: 'No UI to prompt for permission. Open the side panel and retry.' };
+    // Side panel is not open; sendMessage rejects. Say what actually
+    // unblocks it — the old message sent people to open the panel, which
+    // works once and then asks again, because "allow once" is bound to a
+    // single toolUseId. An ALWAYS grant, or a trusted origin, is what makes
+    // it stop asking.
+    return {
+      allowed: false,
+      reason: `No UI to prompt for permission on ${opts.netloc}. Open the side panel and choose `
+        + `"Allow always" (an "allow once" grant covers a single call), or add ${opts.netloc} to `
+        + `trusted origins so it never prompts.`,
+    };
   }
 
   if (!response) {

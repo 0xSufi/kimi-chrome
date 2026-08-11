@@ -165,7 +165,16 @@ async function dispatch(inv: ToolInvocation): Promise<void> {
     return;
   }
 
-  const resolved = await resolveTab({ tabId: inv.tabId, tabGroupId: inv.tabGroupId });
+  // Callers may pass the target either as a top-level field or inside the
+  // tool arguments — the MCP shim does the latter, since `tabId` is part of
+  // each tool's declared input schema. Reading only the top-level field
+  // silently dropped it, so every call landed on whatever tab happened to be
+  // active and a caller targeting a specific tab got someone else's page.
+  const argTab = inv.args as { tabId?: number | string; tabGroupId?: number | string } | undefined;
+  const resolved = await resolveTab({
+    tabId: inv.tabId ?? argTab?.tabId,
+    tabGroupId: inv.tabGroupId ?? argTab?.tabGroupId,
+  });
   if (!resolved) {
     inv.reply(fail('No active tab available for this tool'));
     return;

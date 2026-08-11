@@ -28,6 +28,41 @@ export interface CheckResult {
   permission?: Permission;
 }
 
+/**
+ * Origins that never prompt.
+ *
+ * The prompt is delivered by the side panel, so when the panel is closed a
+ * tool call cannot be approved at all — it just fails with "no UI to prompt".
+ * That is fine for arbitrary sites, and hostile for the handful of origins a
+ * developer drives constantly: localhost and their own app. Those are listed
+ * here and skip the prompt entirely.
+ *
+ * Stored under TRUSTED_NETLOCS so it can be edited without a rebuild;
+ * DEFAULT_TRUSTED seeds it. Patterns use the same matcher as permissions,
+ * so `*.example.com` works.
+ */
+const DEFAULT_TRUSTED = ['localhost', '127.0.0.1'];
+
+let trustedCache: string[] | null = null;
+
+async function loadTrusted(): Promise<string[]> {
+  if (trustedCache) return trustedCache;
+  const data = await chrome.storage.local.get(['trustedNetlocs']);
+  const stored = data.trustedNetlocs as string[] | undefined;
+  trustedCache = Array.isArray(stored) ? stored : DEFAULT_TRUSTED;
+  return trustedCache;
+}
+
+export async function listTrusted(): Promise<string[]> {
+  return [...(await loadTrusted())];
+}
+
+export async function setTrusted(netlocs: string[]): Promise<void> {
+  const clean = netlocs.map((n) => n.trim().toLowerCase()).filter(Boolean);
+  trustedCache = clean;
+  await chrome.storage.local.set({ trustedNetlocs: clean });
+}
+
 let cache: Permission[] | null = null;
 
 async function load(): Promise<Permission[]> {
@@ -43,8 +78,12 @@ async function save(list: Permission[]): Promise<void> {
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes[StorageKey.PERMISSIONS]) {
+  if (area !== 'local') return;
+  if (changes[StorageKey.PERMISSIONS]) {
     cache = (changes[StorageKey.PERMISSIONS].newValue as Permission[] | undefined) ?? [];
+  }
+  if (changes.trustedNetlocs) {
+    trustedCache = (changes.trustedNetlocs.newValue as string[] | undefined) ?? null;
   }
 });
 
@@ -103,6 +142,12 @@ export async function check(url: string, toolUseId?: string): Promise<CheckResul
     }
   }
 
+  // Trusted origins never prompt. Checked last so an explicit ALWAYS deny
+  // above still wins — trust is a default, not an override.
+  for (const pattern of await loadTrusted()) {
+    if (matchesNetloc(netloc, pattern)) return { allowed: true };
+  }
+
   return { allowed: false, needsPrompt: true };
 }
 
@@ -121,6 +166,16 @@ export async function checkTransition(fromUrl: string, toUrl: string): Promise<C
       return { allowed: p.action === 'allow', permission: p };
     }
   }
+
+  // Navigating INTO a trusted origin needs no prompt: trusting an origin
+  // that you cannot navigate to is not much of a grant. The reverse — a
+  // transition OUT of a trusted origin to an untrusted one — still prompts,
+  // because that is the direction that carries data somewhere new.
+  const trusted = await loadTrusted();
+  if (trusted.some((pattern) => matchesNetloc(to, pattern))) {
+    return { allowed: true };
+  }
+
   return { allowed: false, needsPrompt: true };
 }
 
